@@ -10,18 +10,25 @@ import urllib.parse
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# --- PROFILE & CONFIG LOGIC ---
-# This looks for any .json files in the folder to build your dropdown
+# --- CONFIG & PROFILE LOGIC ---
 existing_profiles = [f.replace(".json", "") for f in os.listdir(".") if f.endswith(".json")]
 if not existing_profiles:
     existing_profiles = ["Default"]
 
 st.set_page_config(page_title="Lumber Pricing Portal", layout="wide")
 
-# --- SIDEBAR: PROFILE SELECTION ---
-st.sidebar.header("📁 Profile Manager")
+# Session State for Wiping Tables
+if 'reset_counter' not in st.session_state:
+    st.session_state.reset_counter = 0
+
+# --- SIDEBAR: PROFILE & ROLLOUT TOOLS ---
+st.sidebar.header("📁 Profile & Rollout")
 selected_profile = st.sidebar.selectbox("Active Profile", existing_profiles)
-new_profile_name = st.sidebar.text_input("New Profile Name (to save as)")
+new_profile_name = st.sidebar.text_input("New Profile Name")
+
+if st.sidebar.button("🧹 WIPE CURRENT PRICES", use_container_width=True):
+    st.session_state.reset_counter += 1
+    st.rerun()
 
 def load_config(profile):
     filename = f"{profile}.json"
@@ -35,9 +42,7 @@ def save_config(profile, config_dict):
     with open(filename, "w") as f:
         json.dump(config_dict, f)
 
-# Load the data for the selected profile
 saved_data = load_config(selected_profile)
-
 st.title(f"🌲 Pricing Portal: {selected_profile}")
 
 # --- SIDEBAR: SETTINGS ---
@@ -48,14 +53,14 @@ app_password = st.sidebar.text_input("App Password", type="password", value=save
 work_email = st.sidebar.text_input("Work Email", value=saved_data.get("work_email", ""))
 
 st.sidebar.markdown("---")
-st.sidebar.header("2. State Rates")
+st.sidebar.header("2. State/Prov Rates")
 states_input, rates_input = [], []
 d_states = saved_data.get("states", ["AL", "AR", "MS", "FL", "GA", "TX"])
 d_rates = saved_data.get("rates", [3.50, 4.25, 3.75, 4.00, 2.00, 3.80])
 
 for i in range(1, 7):
     col_s, col_r = st.sidebar.columns([1, 2])
-    s = col_s.text_input(f"St {i}", d_states[i-1] if i-1 < len(d_states) else "", key=f"s{i}").upper()
+    s = col_s.text_input(f"St/Pr {i}", d_states[i-1] if i-1 < len(d_states) else "", key=f"s{i}").upper()
     r = col_r.number_input(f"Rate {i}", value=d_rates[i-1] if i-1 < len(d_rates) else 3.50, key=f"r{i}")
     states_input.append(s); rates_input.append(r)
 rate_map = dict(zip(states_input, rates_input))
@@ -68,7 +73,7 @@ uni_div = st.sidebar.number_input("Std Divisor", value=saved_data.get("uni_div",
 msr_div = st.sidebar.number_input("MSR Divisor", value=saved_data.get("msr_div", 25.0))
 
 st.sidebar.markdown("---")
-standard_cities = saved_data.get("standard_cities", ["Chicago, IL", "Houston, TX", "Atlanta, GA"])
+standard_cities = saved_data.get("standard_cities", ["Chicago, IL", "Houston, TX", "Toronto, ON"])
 selected_city_preset = st.sidebar.selectbox("Destination", standard_cities + ["Custom...", "Edit List"])
 if selected_city_preset == "Edit List":
     standard_cities = [c.strip() for c in st.sidebar.text_area("List", value="\n".join(standard_cities)).split("\n") if c.strip()]
@@ -82,17 +87,25 @@ lengths = ["8'", "10'", "12'", "14'", "16'", "18'", "20'"]
 master_products = [f"{t.split(' ')[0]} {l} {t.split(' ')[1]}" for t in types for l in lengths]
 
 saved_master = saved_data.get("master_table_data")
-df_master = st.data_editor(pd.DataFrame(saved_master) if saved_master else pd.DataFrame({
-    "Product": master_products, "FOB Price": 0.0, "Origin": "Warrenton, GA", "Availability": "1-2 TL", "Ship Time": "Prompt"
-}), key=f"m_{selected_profile}", use_container_width=True)
+df_master = st.data_editor(
+    pd.DataFrame(saved_master) if saved_master else pd.DataFrame({
+        "Product": master_products, "FOB Price": 0.0, "Origin": "Warrenton, GA", "Availability": "1-2 TL", "Ship Time": "Prompt"
+    }), 
+    key=f"m_tab_{selected_profile}_{st.session_state.reset_counter}", 
+    use_container_width=True
+)
 
 saved_spec = saved_data.get("spec_table_data")
-df_spec = st.data_editor(pd.DataFrame(saved_spec) if saved_spec else pd.DataFrame({
-    "Product": "", "FOB Price": 0.0, "Origin": "Warren, AR", "Availability": "1-2 TL", "Ship Time": "Prompt"
-}), num_rows="dynamic", key=f"s_{selected_profile}", use_container_width=True)
+df_spec = st.data_editor(
+    pd.DataFrame(saved_spec) if saved_spec else pd.DataFrame({
+        "Product": "", "FOB Price": 0.0, "Origin": "Warren, AR", "Availability": "1-2 TL", "Ship Time": "Prompt"
+    }), 
+    num_rows="dynamic", 
+    key=f"s_tab_{selected_profile}_{st.session_state.reset_counter}", 
+    use_container_width=True
+)
 
-# --- SAVE PROFILE BUTTON ---
-if st.sidebar.button("💾 SAVE PROFILE DATA"):
+if st.sidebar.button("💾 SAVE PROFILE"):
     target = new_profile_name if new_profile_name else selected_profile
     config_to_save = {
         "gmail_user": gmail_user, "app_pass": app_password, "work_email": work_email,
@@ -103,17 +116,17 @@ if st.sidebar.button("💾 SAVE PROFILE DATA"):
         "spec_table_data": df_spec.to_dict('records')
     }
     save_config(target, config_to_save)
-    st.sidebar.success(f"Saved to {target}.json")
+    st.sidebar.success(f"Saved {target}!")
     st.rerun()
 
-# --- ENGINE ---
+# --- ENGINE (North America Ready) ---
 @st.cache_data
 def get_miles(origin, destination):
     time.sleep(1.2)
     try:
-        headers = {'User-Agent': 'lumber_pricing_v11'}
-        url_a = f"https://nominatim.openstreetmap.org/search?q={origin}, USA&format=json&limit=1"
-        url_b = f"https://nominatim.openstreetmap.org/search?q={destination}, USA&format=json&limit=1"
+        headers = {'User-Agent': 'lumber_v12_na'}
+        url_a = f"https://nominatim.openstreetmap.org/search?q={origin}&format=json&limit=1"
+        url_b = f"https://nominatim.openstreetmap.org/search?q={destination}&format=json&limit=1"
         res_a = requests.get(url_a, headers=headers).json()
         res_b = requests.get(url_b, headers=headers).json()
         if not res_a or not res_b: return None
@@ -161,7 +174,7 @@ if 'txt' in st.session_state and st.session_state.txt:
                     msg.attach(MIMEText(st.session_state.txt, 'plain'))
                     srv.sendmail(gmail_user, work_email, msg.as_string())
                     st.success("Sent!")
-            except: st.error("Firewall blocked Gmail. Use Outlook button.")
+            except: st.error("Firewall blocked. Use Outlook.")
     with c2:
         sub_enc = urllib.parse.quote(f"Lumber Quote - {dest_city}")
         body_enc = urllib.parse.quote(st.session_state.txt)

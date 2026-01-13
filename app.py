@@ -44,20 +44,26 @@ for i in range(1, 7):
     states_input.append(s); rates_input.append(r)
 rate_map = dict(zip(states_input, rates_input))
 
-# --- SIDEBAR: LOGISTICS ---
+# --- SIDEBAR: LOGISTICS & ROUNDING ---
 st.sidebar.markdown("---")
-st.sidebar.header("2. Logistics & Divisors")
+st.sidebar.header("2. Logistics & Rounding")
 sh_threshold = st.sidebar.number_input("Short Haul Limit (Miles)", value=saved_data.get("sh_threshold", 200))
 sh_floor = st.sidebar.number_input("Short Haul Floor ($)", value=saved_data.get("sh_floor", 700))
 uni_div = st.sidebar.number_input("Std MBF per Truck", value=saved_data.get("uni_div", 23.0))
 msr_div = st.sidebar.number_input("MSR MBF per Truck", value=saved_data.get("msr_div", 25.0))
+
+# Adjustable Rounding Rule
+round_options = [1, 5, 10, 0] 
+round_labels = {1: "Next $1", 5: "Next $5", 10: "Next $10", 0: "Exact (Decimals)"}
+round_val = st.sidebar.selectbox("Round Up To:", options=round_options, 
+                                 format_func=lambda x: round_labels[x],
+                                 index=round_options.index(saved_data.get("round_to", 1)))
 
 # --- SIDEBAR: DESTINATIONS ---
 st.sidebar.markdown("---")
 st.sidebar.header("3. Destinations")
 default_cities = ["Chicago, IL", "Houston, TX", "Atlanta, GA", "Toronto, ON"]
 city_list = saved_data.get("standard_cities", default_cities)
-
 selected_city_preset = st.sidebar.selectbox("Choose Destination", city_list + ["Custom...", "Edit List"])
 
 if selected_city_preset == "Edit List":
@@ -94,6 +100,7 @@ if st.sidebar.button("💾 SAVE PROFILE", use_container_width=True):
         "states": states_input, "rates": rates_input, 
         "sh_threshold": sh_threshold, "sh_floor": sh_floor,
         "uni_div": uni_div, "msr_div": msr_div,
+        "round_to": round_val,
         "standard_cities": city_list,
         "master_table_data": df_master.to_dict('records'),
         "spec_table_data": df_spec.to_dict('records')
@@ -110,7 +117,7 @@ def get_miles(origin, destination):
     if not origin or not destination: return None
     time.sleep(1.2)
     try:
-        headers = {'User-Agent': 'lumber_v18'}
+        headers = {'User-Agent': 'lumber_v20'}
         url_a = f"https://nominatim.openstreetmap.org/search?q={origin}&format=json&limit=1"
         url_b = f"https://nominatim.openstreetmap.org/search?q={destination}&format=json&limit=1"
         res_a = requests.get(url_a, headers=headers).json()
@@ -120,7 +127,7 @@ def get_miles(origin, destination):
         return requests.get(r_url).json()['routes'][0]['distance'] * 0.000621371
     except: return None
 
-def run_report(cities, spec_only):
+def run_report(cities, spec_only, round_rule):
     out = ""
     combined = df_spec if spec_only else pd.concat([df_master, df_spec])
     for city in cities:
@@ -132,7 +139,13 @@ def run_report(cities, spec_only):
                 if miles:
                     cost = sh_floor if miles < sh_threshold else miles * rate
                     div = msr_div if "MSR" in str(r['Product']).upper() else uni_div
-                    p = math.ceil(r['FOB Price'] + (cost / div))
+                    raw_price = r['FOB Price'] + (cost / div)
+                    
+                    if round_rule == 0:
+                        p = round(raw_price, 2)
+                    else:
+                        p = math.ceil(raw_price / round_rule) * round_rule
+                        
                     rows.append(f"{r['Product']:<25} {r['Availability']:<10} {r['Ship Time']:<10} ${p}")
         if rows:
             out += f"LUMBER QUOTE - {city.upper()}\n{'PRODUCT':<25} {'AVAIL':<10} {'SHIP':<10} {'PRICE'}\n" + "-"*55 + "\n" + "\n".join(rows) + "\n\n"
@@ -144,12 +157,12 @@ s_only = st.toggle("Specialty Items ONLY")
 col1, col2 = st.columns(2)
 
 if col1.button(f"Generate Quote for {dest_city}", type="primary", use_container_width=True):
-    st.session_state.txt = run_report([dest_city], s_only)
+    st.session_state.txt = run_report([dest_city], s_only, round_val)
 
 if col2.button("⚡ BULK ALL CITIES", use_container_width=True):
-    st.session_state.txt = run_report(city_list, s_only)
+    st.session_state.txt = run_report(city_list, s_only, round_val)
 
 if 'txt' in st.session_state:
-    st.subheader("📋 Final Quote (Copy & Paste below)")
+    st.subheader("📋 Final Quote (Copy & Paste)")
     st.text_area("Quote Content", value=st.session_state.txt, height=400)
-    st.info("💡 Pro Tip: Click inside the box above and press Ctrl+A then Ctrl+C to copy everything.")
+    st.info("💡 Use Ctrl+A and Ctrl+C to quickly copy this report into an email.")

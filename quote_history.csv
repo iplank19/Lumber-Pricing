@@ -1,0 +1,30 @@
+Date,User,Customer,Destination,Status,Quote_Details
+2026-01-14 05:00,Ian,ProTec Panel and Truss,"Bremen, IN",Pending,"QUOTE - BREMEN, IN
+PRODUCT                      AVAIL        SHIP            PRICE
+------------------------------------------------------------
+2x4 8' #1                    1-2 TL       Prompt       $    512
+2x4 10' #1                   1-2 TL       Prompt       $    499
+2x4 12' #1                   1-2 TL       Prompt       $    507
+2x4 14' #1                   1-2 TL       Prompt       $    610
+2x4 16' #1                   1-2 TL       Prompt       $    627
+2x4 18' #1                   1-2 TL       Prompt       $    517
+2x4 20' #1                   1-2 TL       Prompt       $    538
+2x4 8' #2                    1-2 TL       Prompt       $    500
+2x4 10' #2                   1-2 TL       Prompt       $    488
+2x4 12' #2                   1-2 TL       Prompt       $    488
+2x6 10' #1                   1-2 TL       Prompt       $    520
+2x6 12' #1                   1-2 TL       Prompt       $    540
+2x6 14' #1                   1-2 TL       Prompt       $    540
+2x6 16' #1                   1-2 TL       Prompt       $    560
+2x6 18' #1                   1-2 TL       Prompt       $    520
+2x6 20' #1                   1-2 TL       Prompt       $    535
+2x6 3/10' 3/12' 3/14' 3/16'  3 TL         1-2 Weeks    $    577
+2x8 3/10' 3/12' 3/14' 3/16'  3 TL         Prompt       $    543
+2x10 3/10' 3/12' 3/14' 3/16' 2 TL         1-2 Weeks    $    558
+2x12 3/10' 3/12' 3/14' 3/16' 3 TL         Prompt       $    608
+2x6 4/18' 4/20' 2400 SYP MSR 2 TL         Prompt       $    547
+2x8 4/18' 4/20' 2400 SYP MSR 2 TL         Prompt       $    552
+2x10 4/18' 4/20' 2400 SYP MS 2 TL         Prompt       $    542
+2x12 4/18' 4/20' 2400 SYP MS 2 TL         Prompt       $    608
+
+"
